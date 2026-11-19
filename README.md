@@ -28,3 +28,10 @@ python -m venv .venv && .venv\Scripts\pip install skyfield matplotlib numpy
 `python testler/test_istasyon.py` (sabit TLE ile geçiş hesabı, kayıt komutu, güneş yüksekliği).
 
 Yörünge verisi: CelesTrak. Harita: Natural Earth (kamu malı).
+
+## Belgeler
+- `belgeler/alisveris-listesi.md`: alıcı ve anten seçenekleri (Kasım 2026)
+- `belgeler/cekim-rehberi.md`: anteni kurma, SatDump ayarları, çekim günü
+
+## Lisans
+MIT.
