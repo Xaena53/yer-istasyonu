@@ -1,0 +1,22 @@
+{
+  "konum": { "ad": "Eskişehir", "enlem": 39.7767, "boylam": 30.5206, "yukseklik_m": 790 },
+  "en_az_yukseklik": 25,
+  "tle_yenile_saat": 12,
+  "uydular": [
+    {
+      "ad": "Meteor-M N2-4",
+      "norad": 59051,
+      "frekans_hz": 137900000,
+      "pipeline": "meteor_m2-x_lrpt_80k"
+    }
+  ],
+  "alici": {
+    "satdump": "satdump",
+    "kaynak": "rtlsdr",
+    "ornekleme": 1024000,
+    "kazanc": 38,
+    "ek": []
+  },
+  "kayit_klasoru": "kayitlar",
+  "gecis_oncesi_sn": 60
+}
