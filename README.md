@@ -25,8 +25,12 @@ python -m venv .venv && .venv\Scripts\pip install -r requirements.txt
   3 günden eski TLE için uyarı verilir.
 - `calis` ağ/TLE hatasında kapanmaz, 10 dk sonra yeniden dener. Geçiş 3 saatten uzaksa saatte bir TLE tazeleyip
   yeniden hesaplar. Bilgisayar uykudan dönünce kaçan geçişi atlar, geç başlarsa kayıt süresini kısaltır.
-- SatDump bulunamazsa geçiş atlanır ve söylenir; `--timeout`'a uymazsa 2 dk sonra durdurulur.
+- SatDump bulunamazsa geçiş atlanır ve söylenir. Kayıt bitince görüntüleri işlemesi için 10 dk pay bırakılır,
+  ancak bundan sonra hâlâ kapanmamışsa durdurulur.
   Hata koduyla biterse `satdump.log`'un sonu ekrana yazılır.
+- Windows'ta `calis` açıkken bilgisayarın uykuya geçmesi engellenir (ekran yine kapanabilir).
+- CelesTrak "veri güncellenmedi" derse eski kopya korunur ve süre dolana dek tekrar sorulmaz.
+- Bir uydunun TLE'si alınamazsa diğer uydular hesaplanmaya devam eder.
 - `ayar.json` açılışta denetlenir; hatalı alan adıyla söylenir.
 
 ## Alıcı gelince
@@ -35,7 +39,7 @@ python -m venv .venv && .venv\Scripts\pip install -r requirements.txt
 3. Anten: kitteki dipol, V-dipol düzeni (kollar ~53 cm, 120°, yatay).
 
 ## Test
-`python testler/test_istasyon.py` ya da `pytest testler`: 12 test, ağ gerekmez (sabit TLE ile geçiş hesabı, TLE
+`python testler/test_istasyon.py` ya da `pytest testler`: 16 test, ağ gerekmez (sabit TLE ile geçiş hesabı, TLE
 sağlama/bozuk önbellek, kayıt akışı: SatDump yok / geçiş kaçtı / hata kodu, ayar denetimi, görseller).
 
 Yörünge verisi: CelesTrak. Harita: Natural Earth (kamu malı).

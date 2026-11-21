@@ -82,10 +82,17 @@ def hepsi(a, gun, cevrimdisi=False):
     yer = yorunge.istasyon(a["konum"])
     simdi = yorunge.zaman_olcegi.now()
     son = yorunge.zaman_olcegi.tt_jd(simdi.tt + gun)
-    liste = []
+    liste, hatalar = [], []
     for u in a["uydular"]:
-        uydu = yorunge.uydu_yukle(u, a["tle_yenile_saat"], cevrimdisi)
+        try:
+            uydu = yorunge.uydu_yukle(u, a["tle_yenile_saat"], cevrimdisi)
+        except RuntimeError as h:                # bir uydunun TLE'si yoksa diğerleri sürsün
+            hatalar.append(str(h))
+            print(f"uyarı: {h}", file=sys.stderr)
+            continue
         liste += [(g, u) for g in yorunge.gecisler(uydu, yer, simdi, son, a["en_az_yukseklik"])]
+    if hatalar and len(hatalar) == len(a["uydular"]):
+        raise RuntimeError("; ".join(hatalar))
     return sorted(liste, key=lambda p: p[0].aos.tt)
 
 
@@ -95,35 +102,56 @@ def gunluk(mesaj):
 
 def calis(a, kuru=False, cevrimdisi=False):
     gunluk(f"Yer istasyonu çalışıyor: {a['konum']['ad']}, en az {a['en_az_yukseklik']}°")
-    if not kuru and not kayit.satdump_bul(a["alici"]):
-        gunluk(f"uyarı: SatDump bulunamadı ({a['alici'].get('satdump', 'satdump')!r}); geçişler kaydedilemez")
+    if not kuru:
+        if not kayit.satdump_bul(a["alici"]):
+            gunluk(f"uyarı: SatDump bulunamadı ({a['alici'].get('satdump', 'satdump')!r}); geçişler kaydedilemez")
+        if kayit.uykuyu_engelle(True):
+            gunluk("bilgisayarın uykuya geçmesi istasyon açıkken engellendi")
+    try:
+        _calis_dongusu(a, kuru, cevrimdisi)
+    finally:
+        if not kuru:
+            kayit.uykuyu_engelle(False)
+
+
+def _calis_dongusu(a, kuru, cevrimdisi):
     duyurulan = None
     while True:
         try:
-            liste = hepsi(a, 1, cevrimdisi)
-        except Exception as h:                  # ağ, TLE, hesap: istasyon kapanmasın
-            gunluk(f"geçişler hesaplanamadı: {h}; 10 dk sonra yeniden denenecek")
+            duyurulan = _bir_tur(a, kuru, cevrimdisi, duyurulan)
+        except Exception as h:                  # ağ, TLE, disk, beklenmedik: istasyon kapanmasın
+            gunluk(f"hata: {type(h).__name__}: {h}; 10 dk sonra yeniden denenecek")
+            if kuru:
+                raise
             kayit.uyu(600)
             continue
-        if not liste:
-            gunluk("24 saat içinde iyi geçiş yok; 1 saat sonra yeniden bakılacak")
-            kayit.uyu(3600)
-            continue
-        g, u = liste[0]
-        kalan = (kayit.baslangic_zamani(g, a["gecis_oncesi_sn"]) - kayit.simdi()).total_seconds()
-        if kalan > UZAK_GECIS_SN and not kuru:
-            anahtar = (g.uydu, round(g.aos.tt * 1440))
-            if anahtar != duyurulan:
-                gunluk(f"sıradaki: {g.uydu} {gorsel.tablo_satiri(g)}")
-                duyurulan = anahtar
-            kayit.uyu(min(3600, kalan - UZAK_GECIS_SN + 60))
-            continue
-        rc = kayit.bekle_ve_kaydet(g, u, a, kuru=kuru, yazdir=gunluk)
         if kuru:
             return
-        gunluk(f"bitti (çıkış kodu {rc})")
-        # kayıt yapılamadıysa aynı geçişi tekrar tekrar denememek için geçiş bitene dek bekle
-        kayit.uyu(max(30, (kayit.bitis_zamani(g, a["gecis_oncesi_sn"]) - kayit.simdi()).total_seconds()))
+
+
+def _bir_tur(a, kuru, cevrimdisi, duyurulan):
+    """Döngünün bir turu: sıradaki geçişi bul, uzaksa bekle, yakınsa kaydet. Duyurulan geçişi döner."""
+    liste = hepsi(a, 1, cevrimdisi)
+    if not liste:
+        gunluk("24 saat içinde iyi geçiş yok; 1 saat sonra yeniden bakılacak")
+        kayit.uyu(3600)
+        return duyurulan
+    g, u = liste[0]
+    kalan = (kayit.baslangic_zamani(g, a["gecis_oncesi_sn"]) - kayit.simdi()).total_seconds()
+    if kalan > UZAK_GECIS_SN and not kuru:
+        anahtar = (g.uydu, round(g.aos.tt * 1440))
+        if anahtar != duyurulan:
+            gunluk(f"sıradaki: {g.uydu} {gorsel.tablo_satiri(g)}")
+            duyurulan = anahtar
+        kayit.uyu(min(3600, kalan - UZAK_GECIS_SN + 60))
+        return duyurulan
+    rc = kayit.bekle_ve_kaydet(g, u, a, kuru=kuru, yazdir=gunluk)
+    if kuru:
+        return duyurulan
+    gunluk(f"bitti (çıkış kodu {rc})")
+    # kayıt yapılamadıysa aynı geçişi tekrar tekrar denememek için geçiş bitene dek bekle
+    kayit.uyu(max(30, (kayit.bitis_zamani(g, a["gecis_oncesi_sn"]) - kayit.simdi()).total_seconds()))
+    return duyurulan
 
 
 def kontrol(a, cevrimdisi=False):
@@ -141,8 +169,8 @@ def kontrol(a, cevrimdisi=False):
         try:
             uydu = yorunge.uydu_yukle(u, a["tle_yenile_saat"], cevrimdisi, uyar=uyarilar.append)
             yas = yorunge.tle_yasi_gun(uydu)
-            satir(yas <= yorunge.TLE_BAYAT_GUN, f"{u['ad']} TLE {yas:.1f} günlük")
-        except RuntimeError as h:
+            satir(yas <= yorunge.TLE_BAYAT_GUN, f"{u.get('ad', uydu.name)} TLE {yas:.1f} günlük")
+        except Exception as h:
             satir(False, f"{u.get('ad', u['norad'])}: {h}")
         for m in uyarilar:
             if "günlük" not in m:
@@ -166,7 +194,7 @@ def kontrol(a, cevrimdisi=False):
             satir(True, f"sıradaki geçiş: {g.uydu} {gorsel.tablo_satiri(g)}")
         else:
             satir(False, "48 saat içinde iyi geçiş yok (en_az_yukseklik çok mu yüksek?)")
-    except RuntimeError as h:
+    except Exception as h:
         satir(False, f"geçiş hesabı: {h}")
     print("hazır" if not sorun else f"{sorun} sorun var")
     return sorun

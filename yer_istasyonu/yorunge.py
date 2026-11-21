@@ -67,16 +67,19 @@ def tle_al(norad, yenile_saat=12, cevrimdisi=False, uyar=None):
             tle = _tle_coz(metin)
             if tle:
                 gecici = yol + ".yeni"
-                with open(gecici, "w", encoding="ascii") as f:
+                with open(gecici, "w", encoding="utf-8") as f:
                     f.write("\n".join(tle) + "\n")
                 os.replace(gecici, yol)        # yarıda kesilirse eski kopya bozulmaz
             else:
                 uyar(f"Celestrak {norad} için geçerli TLE vermedi: {metin.strip()[:80]!r}")
+                if os.path.exists(yol):
+                    # "veri güncellenmedi" / sık indirme yanıtı: yenile_saat dolana dek tekrar sorma
+                    os.utime(yol)
         except OSError as hata:
             uyar(f"TLE indirilemedi ({hata}); yerel kopya kullanılıyor")
     if not os.path.exists(yol):
         raise RuntimeError(f"{norad} için TLE yok (internet bağlantısını kontrol et)")
-    with open(yol, encoding="ascii", errors="replace") as f:
+    with open(yol, encoding="utf-8", errors="replace") as f:
         tle = _tle_coz(f.read())
     if not tle:
         raise RuntimeError(f"{yol} bozuk; dosyayı sil, program yeniden indirsin")

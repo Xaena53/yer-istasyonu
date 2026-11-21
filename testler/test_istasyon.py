@@ -7,6 +7,7 @@ import datetime as dt
 import os
 import sys
 import tempfile
+import time
 
 KOK = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, KOK)
@@ -197,6 +198,97 @@ def test_gorseller():
                 assert False
             except ValueError:
                 pass
+
+
+class _SahteYanit:
+    def __init__(self, metin):
+        self.metin = metin.encode()
+
+    def read(self):
+        return self.metin
+
+
+def _gecici_tle(d, eski_sn=0):
+    yol = os.path.join(d, "59051.tle")
+    with open(yol, "w") as f:
+        f.write(f"METEOR-M2 4\n{S1}\n{S2}\n")
+    if eski_sn:
+        os.utime(yol, (time.time() - eski_sn, time.time() - eski_sn))
+    return yol
+
+
+def test_tle_indirme_ve_guncellenmedi_yaniti():
+    """Geçerli yanıt dosyayı yeniler; 'güncellenmedi' yanıtı eski kopyayı korur ve tekrar sormaz."""
+    eski_klasor, eski_ac = yorunge.TLE_KLASORU, yorunge.urllib.request.urlopen
+    with tempfile.TemporaryDirectory() as d:
+        yorunge.TLE_KLASORU = d
+        cagri = []
+        try:
+            yol = _gecici_tle(d, eski_sn=13 * 3600)
+            yorunge.urllib.request.urlopen = lambda *a, **k: (cagri.append(1), _SahteYanit(
+                "GP data has not updated since your last successful download."))[1]
+            uyarilar = []
+            assert yorunge.tle_al(59051, uyar=uyarilar.append)[1] == S1
+            assert len(cagri) == 1 and uyarilar
+            assert time.time() - os.path.getmtime(yol) < 60          # taze sayıldı
+            yorunge.tle_al(59051, uyar=uyarilar.append)
+            assert len(cagri) == 1                                   # ikinci kez sorulmadı
+            os.utime(yol, (time.time() - 13 * 3600,) * 2)
+            # Celestrak satır sonu CRLF; yeni kopya atomik yazılır
+            yorunge.urllib.request.urlopen = lambda *a, **k: _SahteYanit(f"METEOR-M2 4\r\n{S1}\r\n{S2}\r\n")
+            assert yorunge.tle_al(59051, uyar=uyarilar.append) == ("METEOR-M2 4", S1, S2)
+            assert not os.path.exists(yol + ".yeni")
+
+            def kopuk(*a, **k):
+                raise OSError("ağ yok")
+            os.utime(yol, (time.time() - 13 * 3600,) * 2)
+            yorunge.urllib.request.urlopen = kopuk
+            uyarilar.clear()
+            assert yorunge.tle_al(59051, uyar=uyarilar.append)[1] == S1
+            assert any("indirilemedi" in m for m in uyarilar)
+        finally:
+            yorunge.TLE_KLASORU, yorunge.urllib.request.urlopen = eski_klasor, eski_ac
+
+
+def test_hepsi_bir_uydu_bozuksa_digerleri_surer():
+    eski = yorunge.TLE_KLASORU
+    with tempfile.TemporaryDirectory() as d:
+        yorunge.TLE_KLASORU = d
+        try:
+            _gecici_tle(d)
+            a = _ayar(uydular=[dict(UYDU_AYAR), dict(UYDU_AYAR, norad=11111, ad="Yok")])
+            a["tle_yenile_saat"] = 12
+            liste = istasyon.hepsi(a, 2, cevrimdisi=True)
+            assert liste and all(g.uydu == "Meteor-M N2-4" for g, _ in liste)
+            a["uydular"] = [dict(UYDU_AYAR, norad=11111)]
+            try:
+                istasyon.hepsi(a, 2, cevrimdisi=True)
+                assert False, "hiç TLE yokken hata vermeliydi"
+            except RuntimeError:
+                pass
+        finally:
+            yorunge.TLE_KLASORU = eski
+
+
+def test_kontrol_cokmez():
+    eski = yorunge.TLE_KLASORU
+    with tempfile.TemporaryDirectory() as d:
+        yorunge.TLE_KLASORU = d
+        try:
+            _gecici_tle(d)
+            uydu = dict(UYDU_AYAR)
+            del uydu["ad"]                                          # ad isteğe bağlı
+            a = istasyon.ayar_dogrula(_ayar(uydular=[uydu], kayit_klasoru=os.path.join(d, "k")))
+            a["alici"]["satdump"] = "boyle-bir-program-yok-xyz"
+            sorun = istasyon.kontrol(a, cevrimdisi=True)
+            assert sorun >= 1                                       # en az SatDump eksik
+        finally:
+            yorunge.TLE_KLASORU = eski
+
+
+def test_uyku_engelleme():
+    assert kayit.uykuyu_engelle(True) in (True, False)
+    kayit.uykuyu_engelle(False)
 
 
 if __name__ == "__main__":

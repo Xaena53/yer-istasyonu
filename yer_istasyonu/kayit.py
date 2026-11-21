@@ -5,11 +5,21 @@ import shutil
 import subprocess
 import time
 
-EK_SURE_SN = 120          # SatDump --timeout'a uymazsa bu kadar sonra durdurulur
+EK_SURE_SN = 600          # kayıt bitince SatDump görüntüleri işler; takılırsa ancak bu kadar sonra durdurulur
 
 
 def simdi():
     return dt.datetime.now(dt.timezone.utc)
+
+
+def uykuyu_engelle(acik=True):
+    """Windows: istasyon çalışırken bilgisayarın uykuya geçmesini engeller (ekran kapanabilir)."""
+    if os.name != "nt":
+        return False
+    import ctypes
+    ES_CONTINUOUS, ES_SYSTEM_REQUIRED = 0x80000000, 0x00000001
+    bayrak = ES_CONTINUOUS | (ES_SYSTEM_REQUIRED if acik else 0)
+    return bool(ctypes.windll.kernel32.SetThreadExecutionState(bayrak))
 
 
 def uyu(saniye):
@@ -87,17 +97,17 @@ def bekle_ve_kaydet(gecis, uydu_ayar, ayar, kuru=False, yazdir=print):
     komut = satdump_komutu(gecis, uydu_ayar, alici, ayar["kayit_klasoru"], pay, sure_sn=sure)
     komut[0] = program
     klasor = komut[3]
-    os.makedirs(klasor, exist_ok=True)
     gunluk_yolu = os.path.join(klasor, "satdump.log")
     try:
+        os.makedirs(klasor, exist_ok=True)
         with open(gunluk_yolu, "w", encoding="utf-8") as gunluk:
             rc = subprocess.run(komut, stdout=gunluk, stderr=subprocess.STDOUT,
                                 timeout=sure + EK_SURE_SN).returncode
     except subprocess.TimeoutExpired:
-        yazdir(f"  SatDump {sure + EK_SURE_SN} sn'de kapanmadı, durduruldu")
+        yazdir(f"  SatDump kayıttan {EK_SURE_SN // 60} dk sonra hâlâ kapanmadı, durduruldu")
         rc = -1
     except OSError as hata:
-        yazdir(f"  SatDump çalıştırılamadı: {hata}")
+        yazdir(f"  SatDump çalıştırılamadı ya da klasör açılamadı: {hata}")
         return None
     if rc != 0:
         yazdir(f"  SatDump hata koduyla bitti ({rc}); günlüğün sonu:")
