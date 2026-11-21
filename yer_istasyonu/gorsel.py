@@ -63,6 +63,8 @@ def _kaydet(fig, yol):
 
 def gokyuzu(gecis_listesi, konum, yol, en_iyi=None):
     """Kuzey yukarıda, tepe noktası merkezde; her çizgi bir geçiş."""
+    if not gecis_listesi:
+        raise ValueError("gökyüzünde gösterilecek geçiş yok")
     fig = plt.figure(figsize=(8, 10.2))
     ax = fig.add_axes([0.1, 0.25, 0.8, 0.62], projection="polar")
     ax.set_theta_zero_location("N")
@@ -84,7 +86,7 @@ def gokyuzu(gecis_listesi, konum, yol, en_iyi=None):
         r = [90 - max(p[1], 0) for p in g.iz]
         vurgu = g is en_iyi
         ax.plot(teta, r, color=VURGU if vurgu else "#9aa0a8", linewidth=3.2 if vurgu else 1.6, solid_capstyle="round")
-        ax.annotate("", xy=(teta[-1], r[-1]), xytext=(teta[-4], r[-4]),
+        ax.annotate("", xy=(teta[-1], r[-1]), xytext=(teta[max(0, len(teta) - 4)], r[max(0, len(r) - 4)]),
                     arrowprops=dict(arrowstyle="-|>", color=VURGU if vurgu else "#9aa0a8", lw=0))
         ax.plot(teta[0], r[0], marker="o", markersize=17, color=VURGU if vurgu else "#7b818a", clip_on=False, zorder=5)
         ax.text(teta[0], r[0], str(no), fontsize=10, color="white", ha="center", va="center",
@@ -125,10 +127,22 @@ def _gorus_cemberi(enlem, boylam, yaricap_km, n=180):
     return noktalar
 
 
-def harita(gecis_listesi, konum, yol, kutu=(10, 52, 22, 58), en_az_derece=25, uydu_km=830):
-    """Geçişlerin yer izi: uydunun altındaki nokta, istasyonun görüş alanı."""
+def haritanin_kutusu(konum):
+    b, e = konum["boylam"], konum["enlem"]
+    e0, e1 = max(-85.0, e - 18), min(85.0, e + 18)
+    return (b - 20.5, b + 21.5, e0, e1)
+
+
+def harita(gecis_listesi, konum, yol, kutu=None, en_az_derece=25, uydu_km=830):
+    """Geçişlerin yer izi: uydunun altındaki nokta, istasyonun görüş alanı.
+
+    kutu verilmezse istasyon merkezli ~42°x36°lik pencere (Eskişehir için Türkiye ve çevresi).
+    """
+    if not gecis_listesi:
+        raise ValueError("haritada çizilecek geçiş yok")
+    kutu = kutu or haritanin_kutusu(konum)
     b0, b1, e0, e1 = kutu
-    olcek = 1 / math.cos(math.radians((e0 + e1) / 2))
+    olcek = 1 / max(0.2, math.cos(math.radians((e0 + e1) / 2)))
     fig, ax = plt.subplots(figsize=(11, 11 * (e1 - e0) * olcek / (b1 - b0) * 0.98))
     ax.set_facecolor(DENIZ)
     cokgen, renk = [], []
@@ -145,7 +159,7 @@ def harita(gecis_listesi, konum, yol, kutu=(10, 52, 22, 58), en_az_derece=25, uy
         y = [p[3] for p in g.iz]
         vurgu = g is en_iyi
         ax.plot(x, y, color=VURGU if vurgu else "#7b818a", linewidth=3 if vurgu else 1.4)
-        ax.annotate("", xy=(x[-1], y[-1]), xytext=(x[-3], y[-3]),
+        ax.annotate("", xy=(x[-1], y[-1]), xytext=(x[max(0, len(x) - 3)], y[max(0, len(y) - 3)]),
                     arrowprops=dict(arrowstyle="-|>", color=VURGU if vurgu else "#7b818a", lw=0, mutation_scale=16))
         yakin = min(g.iz, key=lambda p: (p[3] - konum["enlem"]) ** 2 + ((p[4] - konum["boylam"]) / olcek) ** 2)
         ax.text(yakin[4] + 0.5, yakin[3] + 0.5, f"{gun_saat(yerel(g.tca))} · {g.en_yuksek:.0f}°", fontsize=10.5,
@@ -163,13 +177,15 @@ def harita(gecis_listesi, konum, yol, kutu=(10, 52, 22, 58), en_az_derece=25, uy
         s.set_color(MUREKKEP)
     ax.set_title(f"{gecis_listesi[0].uydu} · önümüzdeki 24 saatin geçişleri", loc="left", fontsize=17, fontweight="bold", pad=26)
     ax.text(0, 1.012, f"Çizgi: uydunun tam altındaki nokta. Kesikli çember: uydu bu alanın üstündeyken "
-            f"Eskişehir'den {en_az_derece}°'den yüksekte görünür.",
+            f"{konum['ad']} istasyonundan {en_az_derece}°'den yüksekte görünür.",
             transform=ax.transAxes, fontsize=10.5, color=SOLUK)
     return _kaydet(fig, yol)
 
 
 def takvim(gecis_listesi, yol, konum, gun_sayisi=7):
     """Günler × saat: her nokta bir geçiş, büyüklüğü en yüksek açı."""
+    if not gecis_listesi:
+        raise ValueError("takvimde gösterilecek geçiş yok")
     fig, ax = plt.subplots(figsize=(11, 5.6))
     bas = yerel(gecis_listesi[0].aos).replace(hour=0, minute=0, second=0, microsecond=0)
     for g in gecis_listesi:
@@ -199,9 +215,9 @@ def takvim(gecis_listesi, yol, konum, gun_sayisi=7):
                              color="#f1dfb8", alpha=0.6, zorder=0, linewidth=0)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
-    ax.set_title(f"{gecis_listesi[0].uydu} · 7 günlük geçiş takvimi (Türkiye saati)", loc="left",
+    ax.set_title(f"{gecis_listesi[0].uydu} · {gun_sayisi} günlük geçiş takvimi (Türkiye saati)", loc="left",
                  fontsize=16, fontweight="bold", pad=22)
-    ax.text(0, 1.015, "Mavi: 50°'nin üstü, en temiz görüntü. Sarı bant: Eskişehir'de gün doğumundan batımına (renkli görüntü gündüz çıkar).",
+    ax.text(0, 1.015, f"Mavi: 50°'nin üstü, en temiz görüntü. Sarı bant: {konum['ad']} için gün doğumundan batımına (renkli görüntü gündüz çıkar).",
             transform=ax.transAxes, fontsize=10.5, color=SOLUK)
     return _kaydet(fig, yol)
 

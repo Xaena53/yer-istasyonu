@@ -4,9 +4,10 @@ Meteor-M hava uydularının Eskişehir üstünden geçişlerini hesaplar, iyi ge
 kendisi başlatır ve görüntüyü SatDump'a çözdürür.
 
 ```
-python -m venv .venv && .venv\Scripts\pip install skyfield matplotlib numpy
+python -m venv .venv && .venv\Scripts\pip install -r requirements.txt
 .venv\Scripts\python istasyon.py gecisler --gun 3     # önümüzdeki geçişler
 .venv\Scripts\python istasyon.py gorsel              # cikti/: gökyüzü, harita, 7 günlük takvim
+.venv\Scripts\python istasyon.py kontrol             # ayar, TLE yaşı, SatDump, disk alanı, sıradaki geçiş
 .venv\Scripts\python istasyon.py calis --kuru        # sıradaki kayıt komutunu göster
 .venv\Scripts\python istasyon.py calis               # bekle, geçişte kaydet (alıcı takılı olmalı)
 ```
@@ -19,13 +20,23 @@ python -m venv .venv && .venv\Scripts\pip install skyfield matplotlib numpy
 - `yer_istasyonu/gorsel.py`: gökyüzü grafiği, yer izi haritası (Natural Earth), güneşli saatleri gösteren takvim.
 - `ayar.json`: konum, en düşük yükseklik (25°), uydular, frekans, alıcı ayarları.
 
+## Dayanıklılık
+- TLE satırları sağlama toplamıyla denetlenir; bozuk ya da yarım inen dosya kullanılmaz, eski kopya korunur.
+  3 günden eski TLE için uyarı verilir.
+- `calis` ağ/TLE hatasında kapanmaz, 10 dk sonra yeniden dener. Geçiş 3 saatten uzaksa saatte bir TLE tazeleyip
+  yeniden hesaplar. Bilgisayar uykudan dönünce kaçan geçişi atlar, geç başlarsa kayıt süresini kısaltır.
+- SatDump bulunamazsa geçiş atlanır ve söylenir; `--timeout`'a uymazsa 2 dk sonra durdurulur.
+  Hata koduyla biterse `satdump.log`'un sonu ekrana yazılır.
+- `ayar.json` açılışta denetlenir; hatalı alan adıyla söylenir.
+
 ## Alıcı gelince
 1. RTL-SDR Blog sürücüsü (Zadig) + SatDump kur, `satdump` PATH'te olsun.
 2. `satdump live --help` ile seçenek adlarını doğrula; farklıysa `ayar.json` → `alici.ek` ya da `kayit.py`.
 3. Anten: kitteki dipol, V-dipol düzeni (kollar ~53 cm, 120°, yatay).
 
 ## Test
-`python testler/test_istasyon.py` (sabit TLE ile geçiş hesabı, kayıt komutu, güneş yüksekliği).
+`python testler/test_istasyon.py` ya da `pytest testler`: 12 test, ağ gerekmez (sabit TLE ile geçiş hesabı, TLE
+sağlama/bozuk önbellek, kayıt akışı: SatDump yok / geçiş kaçtı / hata kodu, ayar denetimi, görseller).
 
 Yörünge verisi: CelesTrak. Harita: Natural Earth (kamu malı).
 
