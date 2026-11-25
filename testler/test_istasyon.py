@@ -310,6 +310,7 @@ def test_enkaz_anlik_kayit_ayni_sayilari_verir():
     assert enkaz.irtifa_kesenler(parcalar, 420) == (1, 1)
     fengyun, _ = enkaz.grup_tle_al("fengyun-1c-debris", klasor)
     assert enkaz.irtifa_kesenler(fengyun, 420) == (7, 4)
+    assert enkaz.irtifa_kesenler(fengyun, 680) == (393, 103)     # İMECE irtifası
 
 
 def test_enkaz_ag_yokken_eski_kopya():
