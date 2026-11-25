@@ -286,6 +286,27 @@ def test_kontrol_cokmez():
             yorunge.TLE_KLASORU = eski
 
 
+def test_enkaz_tle_listesi_bozugu_atlar():
+    import enkaz
+    bozuk = S2[:-1] + str((int(S2[-1]) + 1) % 10)
+    metin = "\n".join(["A", S1, S2, "B", S1, bozuk, "C", S1, S2, ""])
+    gecerli, atlanan = enkaz.tle_listesi_coz(metin)
+    assert [k[0] for k in gecerli] == ["A", "C"]
+    assert atlanan > 0
+    assert enkaz.tle_listesi_coz("")[0] == []
+
+
+def test_enkaz_anlik_kayit_ayni_sayilari_verir():
+    import enkaz
+    klasor = os.path.join(KOK, "belgeler", "enkaz_tle_2026-11-25")
+    parcalar, atlanan = enkaz.grup_tle_al("cosmos-1408-debris", klasor)
+    assert len(parcalar) == 2 and atlanan == 0
+    yer = yorunge.istasyon(KONUM)
+    bas = ts.utc(2026, 11, 25, 18)
+    gecis, _ = enkaz.grup_gecisleri(parcalar, yer, bas, ts.tt_jd(bas.tt + 1), 10)
+    assert len(gecis) == 7
+
+
 def test_uyku_engelleme():
     assert kayit.uykuyu_engelle(True) in (True, False)
     kayit.uykuyu_engelle(False)
