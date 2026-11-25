@@ -179,7 +179,7 @@ def yakin_gecenler(hedef, parcalar, bas, son, esik_km=10.0, kaba_sn=20, kaba_esi
     return sorted(sonuc, key=lambda x: x[0])
 
 
-def gokyuzu_ciz(izler, en_az, yol):
+def gokyuzu_ciz(izler, en_az, yol, kalinlik=0.7, saydamlik=0.75):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -191,7 +191,7 @@ def gokyuzu_ciz(izler, en_az, yol):
     ax.set_theta_direction(-1)              # yukarı kuzey, sağ doğu (haritadaki gibi yukarıdan bakış)
     ax.set_rlim(0, 90 - en_az)
     for az, r in izler:
-        ax.plot(az, r, color="#ffa264", lw=0.7, alpha=0.75, solid_capstyle="round")
+        ax.plot(az, r, color="#ffa264", lw=kalinlik, alpha=saydamlik, solid_capstyle="round")
     halka = np.linspace(0, 2 * np.pi, 400)
     for rr in range(20, 90 - en_az + 1, 20):
         ax.plot(halka, [rr] * 400, color="#ffffff", lw=0.5, alpha=0.14)
