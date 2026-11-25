@@ -179,6 +179,26 @@ def yakin_gecenler(hedef, parcalar, bas, son, esik_km=10.0, kaba_sn=20, kaba_esi
     return sorted(sonuc, key=lambda x: x[0])
 
 
+def irtifa_kesenler(parcalar, km):
+    """TLE'deki ortalama yörüngeye göre (yerberi, yeröte) km irtifası arasında kalan parçalar.
+
+    (kesen, tamamen_altinda) sayıları döner. Yerberi/yeröte TLE'nin ortalama hareketi ve
+    basıklığından hesaplanır (küresel Dünya, ekvator yarıçapı); birkaç km'lik yaklaşıklık taşır.
+    """
+    mu, r = 398600.4418, 6378.137
+    kesen = altinda = 0
+    for _, _, s2 in parcalar:
+        e = float("0." + s2[26:33].strip())
+        n = float(s2[52:63]) * 2 * np.pi / 86400
+        a = (mu / n ** 2) ** (1 / 3)
+        yerberi, yerote = a * (1 - e) - r, a * (1 + e) - r
+        if yerote < km:
+            altinda += 1
+        elif yerberi < km:
+            kesen += 1
+    return kesen, altinda
+
+
 def gokyuzu_ciz(izler, en_az, yol, kalinlik=0.7, saydamlik=0.75):
     import matplotlib
     matplotlib.use("Agg")
@@ -220,6 +240,8 @@ def main(argv=None):
     p.add_argument("--yakin", action="store_true",
                    help="ayar.json'daki ilk uyduya --yakin-km'den yakın geçen Fengyun-1C parçalarını say")
     p.add_argument("--yakin-km", type=float, default=10, help="yakınlık eşiği (km)")
+    p.add_argument("--kesisim-km", type=float,
+                   help="yörüngesi bu irtifayı kesen parçaları say (ör. 420: Uluslararası Uzay İstasyonu)")
     a = p.parse_args(argv)
     if not 0 < a.saat <= 72 or not 0 <= a.en_az < 90 or not 0 < a.gokyuzu_saat <= a.saat:
         p.error("--saat 0..72, --en-az 0..89, --gokyuzu-saat 0..--saat olmalı")
@@ -262,6 +284,9 @@ def main(argv=None):
               + (f" ({atlanan} bozuk satır atlandı)" if atlanan else "")
               + f", irtifa ortanca {statistics.median(irtifa):.0f} km ({min(irtifa):.0f}-{max(irtifa):.0f})"
               + f"\n  geçiş: {len(gecis)}   (en yeni TLE: {epok:%d.%m.%Y})")
+        if a.kesisim_km:
+            kesen, altinda = irtifa_kesenler(parcalar, a.kesisim_km)
+            print(f"  yörüngesi {a.kesisim_km:g} km'yi kesen: {kesen}, tamamen altına inmiş: {altinda}")
         if abs(yas) > yorunge.TLE_BAYAT_GUN:
             _uyar(f"{grup}: en yeni TLE başlangıçtan {yas:+.1f} gün uzakta; sonuçlar kayabilir")
         if grup == "fengyun-1c-debris":

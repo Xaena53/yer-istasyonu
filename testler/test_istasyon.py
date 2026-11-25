@@ -306,6 +306,10 @@ def test_enkaz_anlik_kayit_ayni_sayilari_verir():
     gecis, _ = enkaz.grup_gecisleri(parcalar, yer, bas, ts.tt_jd(bas.tt + 1), 10)
     assert len(gecis) == 7
     assert enkaz.katalog_al("cosmos-1408-debris", "1982-092", klasor) == (1806, 3)
+    # ISS irtifası (420 km): bir parça kesiyor (~409-430 km), biri tamamen altına inmiş
+    assert enkaz.irtifa_kesenler(parcalar, 420) == (1, 1)
+    fengyun, _ = enkaz.grup_tle_al("fengyun-1c-debris", klasor)
+    assert enkaz.irtifa_kesenler(fengyun, 420) == (7, 4)
 
 
 def test_enkaz_ag_yokken_eski_kopya():
