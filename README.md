@@ -20,8 +20,11 @@ yayımlanan parçalarla yapılabildiği için geçiş sayısı bir alt sınırd�
 25 Kasım 2026 tarihli TLE ve katalog kayıtlarıyla şöyle yeniden üretilir:
 
 ```
-.venv\Scripts\python enkaz.py --bas "2026-11-25 18:00" --veri-klasoru belgeler/enkaz_tle_2026-11-25 --gokyuzu cikti/enkaz_gokyuzu.png
+.venv\Scripts\python enkaz.py --bas "2026-11-25 18:00" --veri-klasoru belgeler/enkaz_tle_2026-11-25 --gokyuzu cikti/enkaz_gokyuzu.png --yakin --yakin-km 50
 ```
+
+`--yakin`, `ayar.json`'daki ilk uyduya (Meteor-M N2-4) eşikten yakın geçen Fengyun-1C parçalarını sayar.
+Herkese açık TLE'lerin hatası birkaç km olabilir: sonuç ölçek verir, çarpışma uyarısı değildir.
 
 ## Nasıl çalışır
 - `yer_istasyonu/yorunge.py`: Celestrak'tan TLE (12 saatte bir yenilenir, ağ yoksa son kopya), skyfield ile

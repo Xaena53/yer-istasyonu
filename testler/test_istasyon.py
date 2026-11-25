@@ -329,6 +329,18 @@ def test_enkaz_ag_yokken_eski_kopya():
             assert S2 in f.read()
 
 
+def test_enkaz_yakin_gecis_kendini_bulur():
+    import enkaz
+    hedef = _uydu()
+    bas = ts.utc(2026, 11, 19, 12)
+    son = ts.tt_jd(bas.tt + 1 / 24)
+    # aynı yörünge = sürekli 0 km; çok uzak bir parça (farklı eğim) bulunmamalı
+    uzak = S2.replace("98.7252", "51.6000")
+    uzak = uzak[:-1] + str(sum(int(c) if c.isdigit() else (1 if c == "-" else 0) for c in uzak[:-1]) % 10)
+    sonuc = enkaz.yakin_gecenler(hedef, [("ayni", S1, S2), ("uzak", S1, uzak)], bas, son, esik_km=1)
+    assert [ad for _, _, ad in sonuc] == ["ayni"] and sonuc[0][0] < 0.01
+
+
 def test_enkaz_satcat_bozuk_yaniti_reddeder():
     import enkaz
     assert enkaz.satcat_coz("GP data has not updated") is None

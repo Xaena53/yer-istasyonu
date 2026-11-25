@@ -147,6 +147,38 @@ def grup_gecisleri(parcalar, yer, bas, son, en_az):
     return sonuc, irtifalar
 
 
+def yakin_gecenler(hedef, parcalar, bas, son, esik_km=10.0, kaba_sn=20, kaba_esik_km=500.0):
+    """Parçaların hedef uyduya en yakın yaklaşmaları: [(mesafe km, zaman, parça adı)], esik_km altı.
+
+    Önce kaba_sn adımla tarar; kaba_esik_km'den yakına gelen her an için ±kaba_sn penceresinde
+    0,1 sn adımla en yakın noktayı bulur. TLE'nin kendi hatası birkaç km olabilir: sonuç ölçek verir,
+    çarpışma uyarısı değildir.
+    """
+    ts = yorunge.zaman_olcegi
+    n = int((son.tt - bas.tt) * 86400 / kaba_sn) + 1
+    kaba = ts.tt_jd(np.linspace(bas.tt, son.tt, n))
+    h_kaba = hedef.at(kaba).position.km
+    sonuc = []
+    for ad, s1, s2 in parcalar:
+        uydu = EarthSatellite(s1, s2, ad, ts)
+        d = np.linalg.norm(uydu.at(kaba).position.km - h_kaba, axis=0)
+        adaylar = np.where(np.nan_to_num(d, nan=np.inf) < kaba_esik_km)[0]
+        en_iyi = None
+        # ardışık adaylar tek yaklaşmadır: her ardışık grubun kaba en yakın örneği çevresinde incele
+        gruplar = np.split(adaylar, np.where(np.diff(adaylar) > 1)[0] + 1) if len(adaylar) else []
+        for grup in gruplar:
+            i = int(grup[np.argmin(d[grup])])
+            ince = ts.tt_jd(np.linspace(kaba[i].tt - kaba_sn / 86400, kaba[i].tt + kaba_sn / 86400,
+                                        int(2 * kaba_sn / 0.1) + 1))
+            di = np.linalg.norm(uydu.at(ince).position.km - hedef.at(ince).position.km, axis=0)
+            j = int(np.nanargmin(di))
+            if di[j] < esik_km and (en_iyi is None or di[j] < en_iyi[0]):
+                en_iyi = (float(di[j]), ince[j], ad)
+        if en_iyi:
+            sonuc.append(en_iyi)
+    return sorted(sonuc, key=lambda x: x[0])
+
+
 def gokyuzu_ciz(izler, en_az, yol):
     import matplotlib
     matplotlib.use("Agg")
@@ -185,6 +217,9 @@ def main(argv=None):
                    help="TLE ve katalogu bu klasörden oku (<grup>.tle, <grup>.satcat.json); verilmezse CelesTrak")
     p.add_argument("--gokyuzu", help="Fengyun-1C geçişlerinin gökyüzü çizimi (PNG yolu)")
     p.add_argument("--gokyuzu-saat", type=float, default=1, help="çizime girecek ilk kaç saat")
+    p.add_argument("--yakin", action="store_true",
+                   help="ayar.json'daki ilk uyduya --yakin-km'den yakın geçen Fengyun-1C parçalarını say")
+    p.add_argument("--yakin-km", type=float, default=10, help="yakınlık eşiği (km)")
     a = p.parse_args(argv)
     if not 0 < a.saat <= 72 or not 0 <= a.en_az < 90 or not 0 < a.gokyuzu_saat <= a.saat:
         p.error("--saat 0..72, --en-az 0..89, --gokyuzu-saat 0..--saat olmalı")
@@ -236,6 +271,20 @@ def main(argv=None):
             if a.gokyuzu:
                 gokyuzu_ciz([iz for iz in ilk if iz is not None], a.en_az, a.gokyuzu)
                 print(f"  çizim: {a.gokyuzu}")
+            if a.yakin:
+                hedef_ayar = ayar["uydular"][0]
+                if a.veri_klasoru and os.path.exists(os.path.join(a.veri_klasoru, f"{hedef_ayar['norad']}.tle")):
+                    with open(os.path.join(a.veri_klasoru, f"{hedef_ayar['norad']}.tle"), encoding="utf-8") as f:
+                        _, s1, s2 = yorunge._tle_coz(f.read())
+                    hedef = EarthSatellite(s1, s2, hedef_ayar["ad"], ts)
+                else:
+                    hedef = yorunge.uydu_yukle(hedef_ayar, ayar.get("tle_yenile_saat", 12))
+                h_irtifa = wgs84.height_of(hedef.at(bas)).km
+                yakin = yakin_gecenler(hedef, parcalar, bas, son, a.yakin_km)
+                print(f"  {hedef.name} ({h_irtifa:.0f} km) çevresinde {a.yakin_km:g} km'den yakın geçen parça: "
+                      f"{len(yakin)}")
+                for mesafe, t, ad in yakin[:5]:
+                    print(f"    {mesafe:5.1f} km  {(t.utc_datetime() + TSI):%d.%m %H:%M:%S} TSİ  {ad}")
 
 
 if __name__ == "__main__":
