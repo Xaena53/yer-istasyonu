@@ -305,6 +305,35 @@ def test_enkaz_anlik_kayit_ayni_sayilari_verir():
     bas = ts.utc(2026, 11, 25, 18)
     gecis, _ = enkaz.grup_gecisleri(parcalar, yer, bas, ts.tt_jd(bas.tt + 1), 10)
     assert len(gecis) == 7
+    assert enkaz.katalog_al("cosmos-1408-debris", "1982-092", klasor) == (1806, 3)
+
+
+def test_enkaz_ag_yokken_eski_kopya():
+    import urllib.request
+    import enkaz
+    with tempfile.TemporaryDirectory() as d:
+        yol = os.path.join(d, "x.tle")
+        with open(yol, "w", encoding="utf-8") as f:
+            f.write("\n".join(["A", S1, S2]))
+        os.utime(yol, (0, 0))                         # bayat
+        eski = urllib.request.urlopen
+
+        def agsiz(*_a, **_k):
+            raise OSError("ağ yok")
+        urllib.request.urlopen = agsiz
+        try:
+            enkaz._onbellekli_indir("http://ornek", yol, lambda m: True)   # çökmemeli
+        finally:
+            urllib.request.urlopen = eski
+        with open(yol, encoding="utf-8") as f:
+            assert S2 in f.read()
+
+
+def test_enkaz_satcat_bozuk_yaniti_reddeder():
+    import enkaz
+    assert enkaz.satcat_coz("GP data has not updated") is None
+    assert enkaz.satcat_coz('{"a": 1}') is None
+    assert enkaz.satcat_coz('[{"OBJECT_TYPE": "DEB"}]') == [{"OBJECT_TYPE": "DEB"}]
 
 
 def test_uyku_engelleme():

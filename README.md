@@ -14,11 +14,13 @@ python -m venv .venv && .venv\Scripts\pip install -r requirements.txt
 
 ### Enkaz bulutları
 `enkaz.py`, dört büyük enkaz bulutunun (Fengyun-1C, Kosmos 2251, Iridium 33, Kosmos 1408) parçalarının
-istasyon gökyüzünde ufkun 10° üstüne kaç kez çıktığını sayar. "Uzay enkazı" yazısındaki sayılar,
-25 Kasım 2026 tarihli TLE'lerle şöyle yeniden üretilir:
+istasyon gökyüzünde ufkun 10° üstüne kaç kez çıktığını sayar; CelesTrak katalogundan da olaydan kaç parça
+kaydedildiğini ve kaçının hâlâ yörüngede olduğunu yazar. Geçiş hesabı yalnız güncel yörünge verisi (TLE)
+yayımlanan parçalarla yapılabildiği için geçiş sayısı bir alt sınırdır. "Uzay enkazı" yazısındaki sayılar,
+25 Kasım 2026 tarihli TLE ve katalog kayıtlarıyla şöyle yeniden üretilir:
 
 ```
-.venv\Scripts\python enkaz.py --bas "2026-11-25 18:00" --tle-klasoru belgeler/enkaz_tle_2026-11-25 --gokyuzu cikti/enkaz_gokyuzu.png
+.venv\Scripts\python enkaz.py --bas "2026-11-25 18:00" --veri-klasoru belgeler/enkaz_tle_2026-11-25 --gokyuzu cikti/enkaz_gokyuzu.png
 ```
 
 ## Nasıl çalışır
